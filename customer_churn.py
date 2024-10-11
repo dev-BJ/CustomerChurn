@@ -15,30 +15,29 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.svm import SVC
 from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier
 from sklearn.neighbors import KNeighborsClassifier
+# Import VotingClassifier
+from sklearn.ensemble import VotingClassifier
 from sklearn.metrics import accuracy_score
 from time import time
+import matplotlib.pyplot as plt
+from datetime import datetime
 
+print(f'Start @ {datetime.now()}')
 # Load the dataset
 data = pd.read_csv('./train.csv')
 
 # data
 
-# data.info()
+# print(data.info())
 
-# data.isna().sum()
-
-# data.columns = data.columns.str.replace(' ','')
-# print(data.columns)
+# print(data.isna().sum())
 
 # Drop unnecessary columns
 # data_cleaned = data.drop(['id', 'CustomerId', 'Surname'], axis='columns')
-try:
-    data_cleaned = data.drop(['id', 'CustomerId', 'Surname'], axis=1)
-except Exception:
-    print("Data drop function issue")
+data_cleaned = data.drop(['id', 'CustomerId', 'Surname'], axis=1)
 
 #data_cleaned.head(5)
-data_cleaned.Geography.value_counts()
+# data_cleaned.Geography.value_counts()
 
 # One-hot encoding for 'Geography' and label encoding for 'Gender'
 data_cleaned = pd.get_dummies(data_cleaned, columns=['Geography'], drop_first=True)
@@ -58,6 +57,7 @@ y = y[X.index]
 # Standardize numerical features
 scaler = StandardScaler()
 X_scaled = pd.DataFrame(scaler.fit_transform(X), columns=X.columns)
+# print(X_scaled)
 
 # Split the data into training and testing sets
 X_train, X_test, y_train, y_test = train_test_split(X_scaled, y, test_size=0.2, random_state=42)
@@ -73,8 +73,9 @@ classifiers = {
 
 # Dictionary to store the accuracy results
 results = {}
-clf_start=time()
 
+clf_start=time()
+print(f'CLF start @ {datetime.now()}')
 # Train and evaluate the classifiers
 for name, clf in classifiers.items():
     clf.fit(X_train, y_train)  # Train the model
@@ -82,6 +83,7 @@ for name, clf in classifiers.items():
     accuracy = accuracy_score(y_test, y_pred)  # Calculate accuracy
     results[name] = accuracy  # Store the results
 clf_end=time()
+print(f'CLF end @ {datetime.now()}')
 
 # Print the accuracy results
 print("Classifier Performance:")
@@ -89,8 +91,10 @@ for clf_name, accuracy in results.items():
     print(f"{clf_name}: {accuracy:.4f}")
 print(f"Time used: {clf_end-clf_start}s")
 
-# Import VotingClassifier
-from sklearn.ensemble import VotingClassifier
+#Classification takes ~7min
+
+y_plt=[acc for acc in results.values()]
+x_plt=[name for name in results.keys()]
 
 # Initialize the base classifiers
 log_clf = LogisticRegression()
@@ -111,18 +115,44 @@ voting_clf = VotingClassifier(
     voting='soft'
 )
 
-print("-" * 50)
+print(" " * 40)
 
 v_clf_start=time()
+print(f'Voting start @ {datetime.now()}')
 # Train VotingClassifier
 voting_clf.fit(X_train, y_train)
 
 # Make predictions
 y_pred_voting = voting_clf.predict(X_test)
-print(y_pred_voting)
+
+print(f'Voting end @ {datetime.now()}')
+# Voting takes ~45min
+
+x_data=pd.DataFrame({'Exited':y_pred_voting})['Exited'].value_counts().sort_index()
+y_name=['No(0)','Yes(1)']
 
 # Evaluate VotingClassifier accuracy
 voting_accuracy = accuracy_score(y_test, y_pred_voting)
 print(f"Voting Classifier Accuracy: {voting_accuracy:.4f}")
 v_clf_end=time()
 print(f"Voting time: {v_clf_end-v_clf_start}s")
+print(f'End @ {datetime.now()}')
+
+plt.figure(figsize=(8,6))
+
+plt.subplot(211)
+plt.bar(x_plt,y_plt,color=['red','green'],width=0.5)
+plt.xlabel('Output')
+plt.ylabel('Models')
+plt.title('Classifiers')
+
+plt.subplot(212)
+plt.bar(y_name,x_data,color=['red','green','blue'],width=0.5)
+plt.xlabel('Churn output')
+plt.ylabel('Total Churn')
+plt.title('Voting')
+
+plt.tight_layout()
+
+plt.savefig('OutputImage/figure.png')
+plt.show()
